@@ -3,7 +3,6 @@
 /* eslint-disable  no-restricted-syntax */
 
 const Alexa = require('ask-sdk');
-const s3Adapter = require('ask-sdk-s3-persistence-adapter'); // used in Alexa Hosted environment
 const ddbAdapter = require('ask-sdk-dynamodb-persistence-adapter'); // included in ask-sdk
 
 const SKILL_NAME = 'High Low Game';
@@ -239,7 +238,6 @@ const FallbackHandler = {
     if (sessionAttributes.gameState &&
       sessionAttributes.gameState === 'STARTED') {
       // currently playing
-
       return handlerInput.responseBuilder
         .speak(FALLBACK_MESSAGE_DURING_GAME)
         .reprompt(FALLBACK_REPROMPT_DURING_GAME)
@@ -254,24 +252,29 @@ const FallbackHandler = {
   },
 };
 
-const skillBuilder = Alexa.SkillBuilders.custom();
+function getPersistenceAdapter(tableName) {
+  // Determines persistence adapter to be used based on environment
+  // Note: tableName is only used for DynamoDB Persistence Adapter
+  if (process.env.S3_PERSISTENCE_BUCKET) {
+    // in Alexa Hosted Environment
+    // eslint-disable-next-line global-require
+    const s3Adapter = require('ask-sdk-s3-persistence-adapter');
+    return new s3Adapter.S3PersistenceAdapter({
+      bucketName: process.env.S3_PERSISTENCE_BUCKET,
+    });
+  }
 
-// determine persistence adapter to be used based on environment
-if (process.env.S3_PERSISTENCE_BUCKET) {
-  // in Alexa Hosted Environment
-  skillBuilder.withPersistenceAdapter(new s3Adapter.S3PersistenceAdapter({
-    bucketName: process.env.S3_PERSISTENCE_BUCKET,
-  }));
-} else {
   // Not in Alexa Hosted Environment
-  skillBuilder.withPersistenceAdapter(new ddbAdapter.DynamoDbPersistenceAdapter({
-    tableName: 'High-Low-Game',
+  return new ddbAdapter.DynamoDbPersistenceAdapter({
+    tableName: tableName,
     createTable: true,
-  }));
+  });
 }
 
-// add various handlers
-skillBuilder
+const skillBuilder = Alexa.SkillBuilders.custom();
+
+exports.handler = skillBuilder
+  .withPersistenceAdapter(getPersistenceAdapter('High-Low-Game'))
   .addRequestHandlers(
     LaunchRequest,
     ExitHandler,
@@ -283,6 +286,5 @@ skillBuilder
     FallbackHandler,
     UnhandledIntent,
   )
-  .addErrorHandlers(ErrorHandler);
-
-exports.handler = skillBuilder.lambda();
+  .addErrorHandlers(ErrorHandler)
+  .lambda();
