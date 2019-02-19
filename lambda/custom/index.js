@@ -3,6 +3,8 @@
 /* eslint-disable  no-restricted-syntax */
 
 const Alexa = require('ask-sdk');
+const s3Adapter = require('ask-sdk-s3-persistence-adapter'); // used in Alexa Hosted environment
+const ddbAdapter = require('ask-sdk-dynamodb-persistence-adapter'); // included in ask-sdk
 
 const SKILL_NAME = 'High Low Game';
 const FALLBACK_MESSAGE_DURING_GAME = `The ${SKILL_NAME} skill can't help you with that.  Try guessing a number between 0 and 100. `;
@@ -71,7 +73,7 @@ const HelpIntent = {
   },
   handle(handlerInput) {
     const speechOutput = 'I am thinking of a number between zero and one hundred, try to guess it and I will tell you' +
-            ' if it is higher or lower.';
+      ' if it is higher or lower.';
     const reprompt = 'Try saying a number.';
 
     return handlerInput.responseBuilder
@@ -90,7 +92,7 @@ const YesIntent = {
     const sessionAttributes = attributesManager.getSessionAttributes();
 
     if (sessionAttributes.gameState &&
-        sessionAttributes.gameState === 'STARTED') {
+      sessionAttributes.gameState === 'STARTED') {
       isCurrentlyPlaying = true;
     }
 
@@ -120,7 +122,7 @@ const NoIntent = {
     const sessionAttributes = attributesManager.getSessionAttributes();
 
     if (sessionAttributes.gameState &&
-        sessionAttributes.gameState === 'STARTED') {
+      sessionAttributes.gameState === 'STARTED') {
       isCurrentlyPlaying = true;
     }
 
@@ -163,7 +165,7 @@ const NumberGuessIntent = {
     const sessionAttributes = attributesManager.getSessionAttributes();
 
     if (sessionAttributes.gameState &&
-        sessionAttributes.gameState === 'STARTED') {
+      sessionAttributes.gameState === 'STARTED') {
       isCurrentlyPlaying = true;
     }
 
@@ -227,15 +229,15 @@ const FallbackHandler = {
     const request = handlerInput.requestEnvelope.request;
     return request.type === 'IntentRequest' &&
       (request.intent.name === 'AMAZON.FallbackIntent' ||
-       request.intent.name === 'AMAZON.YesIntent' ||
-       request.intent.name === 'AMAZON.NoIntent');
+        request.intent.name === 'AMAZON.YesIntent' ||
+        request.intent.name === 'AMAZON.NoIntent');
   },
   handle(handlerInput) {
     const attributesManager = handlerInput.attributesManager;
     const sessionAttributes = attributesManager.getSessionAttributes();
 
     if (sessionAttributes.gameState &&
-        sessionAttributes.gameState === 'STARTED') {
+      sessionAttributes.gameState === 'STARTED') {
       // currently playing
 
       return handlerInput.responseBuilder
@@ -252,9 +254,24 @@ const FallbackHandler = {
   },
 };
 
-const skillBuilder = Alexa.SkillBuilders.standard();
+const skillBuilder = Alexa.SkillBuilders.custom();
 
-exports.handler = skillBuilder
+// determine persistence adapter to be used based on environment
+if (process.env.S3_PERSISTENCE_BUCKET) {
+  // in Alexa Hosted Environment
+  skillBuilder.withPersistenceAdapter(new s3Adapter.S3PersistenceAdapter({
+    bucketName: process.env.S3_PERSISTENCE_BUCKET,
+  }));
+} else {
+  // Not in Alexa Hosted Environment
+  skillBuilder.withPersistenceAdapter(new ddbAdapter.DynamoDbPersistenceAdapter({
+    tableName: 'High-Low-Game',
+    createTable: true,
+  }));
+}
+
+// add various handlers
+skillBuilder
   .addRequestHandlers(
     LaunchRequest,
     ExitHandler,
@@ -266,7 +283,6 @@ exports.handler = skillBuilder
     FallbackHandler,
     UnhandledIntent,
   )
-  .addErrorHandlers(ErrorHandler)
-  .withTableName('High-Low-Game')
-  .withAutoCreateTable(true)
-  .lambda();
+  .addErrorHandlers(ErrorHandler);
+
+exports.handler = skillBuilder.lambda();
