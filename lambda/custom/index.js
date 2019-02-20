@@ -1,3 +1,7 @@
+// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Licensed under the Amazon Software License
+// http://aws.amazon.com/asl/
+
 /* eslint-disable  func-names */
 /* eslint-disable  no-console */
 /* eslint-disable  no-restricted-syntax */
