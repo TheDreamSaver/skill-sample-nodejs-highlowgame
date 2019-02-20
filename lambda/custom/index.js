@@ -5,7 +5,9 @@
 const Alexa = require('ask-sdk');
 const ddbAdapter = require('ask-sdk-dynamodb-persistence-adapter'); // included in ask-sdk
 
+// TODO: The items below this comment need your attention.
 const SKILL_NAME = 'High Low Game';
+const ddbTableName = 'High-Low-Game';
 const FALLBACK_MESSAGE_DURING_GAME = `The ${SKILL_NAME} skill can't help you with that.  Try guessing a number between 0 and 100. `;
 const FALLBACK_REPROMPT_DURING_GAME = 'Please guess a number between 0 and 100.';
 const FALLBACK_MESSAGE_OUTSIDE_GAME = `The ${SKILL_NAME} skill can't help you with that.  It will come up with a number between 0 and 100 and you try to guess it by saying a number in that range. Would you like to play?`;
@@ -219,9 +221,6 @@ const ErrorHandler = {
 };
 
 const FallbackHandler = {
-  // 2018-May-01: AMAZON.FallackIntent is only currently available in en-US locale.
-  //              This handler will not be triggered except in that locale, so it can be
-  //              safely deployed for any locale.
   canHandle(handlerInput) {
     // handle fallback intent, yes and no when playing a game
     // for yes and no, will only get here if and not caught by the normal intent handler
@@ -274,7 +273,7 @@ function getPersistenceAdapter(tableName) {
 const skillBuilder = Alexa.SkillBuilders.custom();
 
 exports.handler = skillBuilder
-  .withPersistenceAdapter(getPersistenceAdapter('High-Low-Game'))
+  .withPersistenceAdapter(getPersistenceAdapter(ddbTableName))
   .addRequestHandlers(
     LaunchRequest,
     ExitHandler,
